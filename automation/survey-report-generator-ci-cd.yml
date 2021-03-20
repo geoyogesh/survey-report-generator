@@ -45,7 +45,7 @@ Resources:
                 - cd $CODEBUILD_SRC_DIR/webapp
                 - aws s3 sync . s3://survey-report-generator-"$job_env" --delete
                 - echo "job completed"
-      SourceVersion: develop
+      SourceVersion: main
       TimeoutInMinutes: 10
       QueuedTimeoutInMinutes: 10
       LogsConfig:
@@ -80,7 +80,8 @@ Resources:
                   - 's3:DeleteObject'
                 Effect: Allow
                 Resource:
-                  - 'arn:aws:s3:::survey-report-generator-*/*'
+                  - 'arn:aws:s3:::survey-report-generator-dev'
+                  - 'arn:aws:s3:::survey-report-generator-dev/*'
               - Action:
                   - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
