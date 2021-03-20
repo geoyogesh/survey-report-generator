@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Survey Report Generator - Persistance layer
+Parameters:
+  BuildProjectName:
+    Type: String
+    Description: What is the name of the build project?
+  EnvironmentName:
+    Type: String
+    Description: What environment does this belong to?
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - uat
+      - prod
+    ConstraintDescription: 'Must be one of dev, qa, uat, or prod'
+Resources:
+  WebsiteContent:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: !Sub 'survey-report-generator-${EnvironmentName}'
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          ErrorDocument: index.html
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+  WebsiteContentPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref WebsiteContent
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::survey-report-generator-${EnvironmentName}/*
+
+Outputs:
+  WebApp:
+    Value: !Sub 'survey-report-generator-${EnvironmentName}'
+  InputS3Files:
+    Value: !Sub 'survey-report-generator-${EnvironmentName}'
+  OutputS3Files:
+    Value: !Sub 'survey-report-generator-${EnvironmentName}'

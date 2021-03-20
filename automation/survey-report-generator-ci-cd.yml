@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Survey Report Generator - CI/CD Pipeline
+Parameters:
+  BuildProjectName:
+    Type: String
+    Description: What is the name of the build project?
+  EnvironmentName:
+    Type: String
+    Description: What environment does this belong to?
+    Default: common
+    AllowedValues:
+      - common
+    ConstraintDescription: 'Must be one of dev, qa, uat, or prod'
+Resources:
+  CodeBuildProject:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: 'NO_ARTIFACTS'
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: 'aws/codebuild/standard:4.0'
+        EnvironmentVariables:
+          - Value: dev
+            Type: PLAINTEXT
+            Name: job_env
+      Name: !Sub 'survey-report-generator-ci-cd-${EnvironmentName}'
+      Source:
+        Type: GITHUB
+        Location: https://github.com/geoyogesh/survey-report-generator.git
+        BuildSpec: |-
+          version: 0.2
+
+          phases:
+            install:
+              runtime-versions:
+                nodejs: latest
+              commands:
+                - echo Entered the install phase...
+                
+            build:
+              commands:
+                - cd $CODEBUILD_SRC_DIR/webapp
+                - aws s3 sync . s3://survey-report-generator-"$job_env" --delete
+                - echo "job completed"
+      SourceVersion: develop
+      TimeoutInMinutes: 10
+      QueuedTimeoutInMinutes: 10
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: codebuild-survey-report-generator
+          Status: ENABLED
+          StreamName: codebuild-survey-report-generator
+      Tags:
+        -  
+          Key: "Environment"
+          Value: !Ref EnvironmentName
+  CodeBuildRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: 2012-10-17
+      Path: /
+      Policies:
+        - PolicyName: CodeBuildAccessSurveyReportGeneratorWebsiteCICD
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - 's3:ListBucket'
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:DeleteObject'
+                Effect: Allow
+                Resource:
+                  - 'arn:aws:s3:::survey-report-generator-*/*'
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Effect: Allow
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:codebuild-survey-report-generator
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:codebuild-survey-report-generator:*
+              - Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:GetOjectVersion'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+                Effect: Allow
+                Resource: 'arn:aws:s3:::codepipeline-us-east-1-*'
+
+Outputs:
+  Job:
+    Value: !Sub 'survey-report-generator-ci-cd-${EnvironmentName}'
